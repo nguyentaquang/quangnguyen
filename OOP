@@ -1,0 +1,405 @@
+---------------------------SORT-----------------------------------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class Sort {
+		protected int[] arrayToSort;
+		public Sort(int[] array) {
+			if(array.length != 0)
+			{
+				arrayToSort = new int[array.length];
+				System.arraycopy(array, 0 , arrayToSort, 0 , array.length); // copy array to arrayToSort
+			}
+		}
+		public void swap(int array[],int i, int j)
+		{
+			int temp = array[i];
+			array[i] = array[j];
+			array[j] = temp;
+		}
+		/*public void print_result() {
+			if(arrayToSort.length != 0)
+			{
+				System.out.println(Arrays.toString(arrayToSort));
+			}
+		}*/
+}
+------------------------BUBBLE SORT------------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class BubbleSort extends Sort{
+
+	public BubbleSort(int[] array) 
+	{
+		super(array);
+		if(array.length != 0)
+		{
+			arrayToSort = new int[array.length];
+			System.arraycopy(array, 0 , arrayToSort, 0 , array.length);
+		}
+	}
+
+	protected void Buble_doSort(int array[], int n) {
+		//int n=arrayToSort.length;
+		for(int i=0;i<n;i++)
+		{
+			for(int j=1; j<(n-i); j++) 
+			{
+				if(array[j-1] > array[j])
+				{
+					//temp=arrayToSort[j-1];
+					//arrayToSort[j-1]=arrayToSort[j];
+					//arrayToSort [j]=temp;
+					swap(array,j,j-1);
+				}
+			}
+		}
+	}
+	public void print_result() {
+		if(arrayToSort.length != 0)
+		{
+			Buble_doSort(arrayToSort,arrayToSort.length);
+			System.out.println("Array after bubble sort");
+			System.out.println(Arrays.toString(arrayToSort));
+		}
+	}
+}
+------------------QUICK SORT------------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class QuickSort extends Sort{
+	public QuickSort(int[] array) 
+	{
+		super(array);
+		if(array.length != 0)
+		{
+			arrayToSort = new int[array.length];
+			System.arraycopy(array, 0 , arrayToSort, 0 , array.length);
+		}
+	}
+	/*private void swap(int[] arrays , int i, int j)
+	{
+		int t = arrays[i];
+		arrays[i] = arrays[j];
+		arrays[j] = t;
+	}*/
+	private int partition(int arrays[], int low, int high)
+	{
+		int pivot = arrays[high];
+		int i = low - 1;
+		for(int j = low; j<=high-1;j++)
+		{
+			if(arrays[j] <= pivot)
+			{
+				i++;
+				swap(arrays,i,j);
+			}
+		}
+		swap(arrays,i+1,high);
+		return (i+1);
+	}
+	private void quick_sort(int arrays[], int low, int high)
+	{
+		if(low < high)
+		{
+			int t = partition(arrays,low,high);
+			quick_sort(arrays,low,t-1);
+			quick_sort(arrays,t+1,high);
+		}
+	}
+	/*protected void sort()
+	{
+		quick_sort(arrayToSort, 0 , arrayToSort.length -1);
+	}*/
+	public void print_result() {
+		if(arrayToSort.length != 0)
+		{
+			quick_sort(arrayToSort,0,arrayToSort.length-1);
+			System.out.println("Array after quick sort");
+			System.out.println(Arrays.toString(arrayToSort));
+		}
+	}
+	
+}
+---------------MEGER SORT------------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class MergerSort extends Sort {
+	public MergerSort(int[] array) 
+	{
+		super(array);
+		if(array.length != 0)
+		{
+			arrayToSort = new int[array.length];
+			System.arraycopy(array, 0 , arrayToSort, 0 , array.length);
+		}
+	}
+	public void merger(int array[], int left, int mid, int right)
+	{
+		int n1 = mid - left + 1;
+		int n2 = right - mid;
+		 /* Create temp arrays */
+        int L[] = new int [n1]; 
+        int R[] = new int [n2]; 
+        /*Copy data to temp arrays*/
+        for (int i=0; i<n1; i++) 
+        {
+            L[i] = array[left + i];
+        }
+        for (int j=0; j<n2; j++) 
+        {
+            R[j] = array[mid + 1+ j];
+        }
+        /* Merge the temp arrays */
+        
+        // Initial indexes of first and second subarrays 
+        int i = 0, j = 0; 
+  
+        // Initial index of merged subarry array 
+        int k = left; 
+        while (i < n1 && j < n2) 
+        { 
+            if (L[i] <= R[j]) 
+            { 
+                array[k] = L[i]; 
+                i++; 
+            } 
+            else
+            { 
+                array[k] = R[j]; 
+                j++; 
+            } 
+            k++; 
+        } 
+        /* Copy remaining elements of L[] if any */
+        while (i < n1) 
+        { 
+            array[k] = L[i]; 
+            i++; 
+            k++; 
+        } 
+  
+        /* Copy remaining elements of R[] if any */
+        while (j < n2) 
+        { 
+            array[k] = R[j]; 
+            j++; 
+            k++; 
+        } 
+	}
+	public void mergerSort(int array[],int left, int right)
+	{
+		if (left < right) 
+        { 
+            // Find the middle point 
+            int mid = (left+right)/2; 
+  
+            // Sort first and second halves 
+            mergerSort(array, left, mid); 
+            mergerSort(array , mid+1, right); 
+  
+            // Merge the sorted halves 
+            merger(array, left, mid, right); 
+        } 
+	}
+	public void print_result() {
+		if(arrayToSort.length != 0)
+		{
+			mergerSort(arrayToSort,0,arrayToSort.length-1);
+			System.out.println("Array after Merger sort");
+			System.out.println(Arrays.toString(arrayToSort));
+		}
+	}
+}
+------------------------HEAP SORT--------------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class HeapSort extends Sort{
+	public HeapSort(int[] array) 
+	{
+		super(array);
+		if(array.length != 0)
+		{
+			arrayToSort = new int[array.length];
+			System.arraycopy(array, 0 , arrayToSort, 0 , array.length);
+		}
+	}
+	
+	public void heapify(int array[], int n , int i)
+	{
+		int largest = i ;
+		int left = 2*i + 1;
+		int right = 2*i + 2;
+		if(left < n && array[left] > array[largest])
+		{
+			largest = left;
+		}
+		if (right < n && array[right] > array[largest]) 
+		{
+			largest = right;
+		}
+		if(largest != i)
+		{
+			//int temp = array[i]; 
+            //array[i] = array[largest]; 
+            //array[largest] = temp; 
+			swap(array,i,largest);
+            heapify(array,n,largest);
+		}
+	}
+	public void heapSort(int array[],int n)
+	{
+		//int n = array.length;
+		for(int i=(n/2) - 1; i>=0; i--)
+		{
+			heapify(array,n,i);
+		}
+		for(int i = n-1; i>=0; i--)
+		{
+			//int temp = array[0];
+			//array[0] = array[i];
+			//array[i] = temp;
+			swap(array,0,i);
+			heapify(array,i,0);
+		}
+	}
+	
+	public void print_result() {
+		if(arrayToSort.length != 0)
+		{
+			heapSort(arrayToSort,arrayToSort.length);
+			System.out.println("Array after Heap sort");
+			System.out.println(Arrays.toString(arrayToSort));
+		}
+	}
+}
+----------------INSERTION SORT---------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class InsertionSort extends Sort{
+	public InsertionSort(int[] array) 
+	{
+		super(array);
+		if(array.length != 0)
+		{
+			arrayToSort = new int[array.length];
+			System.arraycopy(array, 0 , arrayToSort, 0 , array.length);
+		}
+	}
+	public void insertionSort(int array[], int n)
+	{
+		for(int i=1; i<n; i++)
+		{
+			int key = array[i];
+			int j = i - 1;
+			/* Move elements of arr[0..i-1], that are 
+            greater than key, to one position ahead 
+            of their current position */
+			while(j>=0 && array[j] > key)
+			{
+				array[j+1] = array[j];
+				j = j - 1;
+			}
+			array[j+1] = key;
+		}
+	}
+	public void print_result() {
+		if(arrayToSort.length != 0)
+		{
+			insertionSort(arrayToSort,arrayToSort.length);
+			System.out.println("Array after Insertion sort");
+			System.out.println(Arrays.toString(arrayToSort));
+		}
+	}
+}
+------------------- EXERCISE 3--------------------
+package exercise.exercise3;
+
+import java.util.Arrays;
+
+public class exercise3 {
+	private static exercise3 instance;
+	private exercise3() {
+		
+	}
+	public static exercise3 getInstance() {
+		if(instance == null)
+		{
+			instance = new exercise3();
+		}
+		return instance;
+	}
+	public void run(String[] args) {
+		int[] arr = {4,3,6,7,1,2,9,7,0};
+		 /*for (int index = 0; index < arr.length; index++)
+		 {
+	            System.out.println("Array " + index + " = " + arr[index]);
+	     }*/
+		/*if(args.length > 0)
+		{
+			if(args[0].equalsIgnoreCase("Bubble"))
+			{
+				System.out.println("Sorted using Bubble sort");
+				BubbleSort bubbleObj = new BubbleSort(arr);
+				bubbleObj.print_result();
+			}
+			else if(args[0].equalsIgnoreCase("Quick"))
+			{
+				System.out.println("Sorted using Quick sort");
+				QuickSort quickObj = new QuickSort(arr);
+				quickObj.print_result();
+			}
+			else if(args[0].equalsIgnoreCase("Heap"))
+			{
+				System.out.println("Sorted using Heap sort");
+				QuickSort quickObj = new QuickSort(arr);
+				quickObj.print_result();
+			}
+			else if(args[0].equalsIgnoreCase("Insertion"))
+			{
+				System.out.println("Sorted using Insertion sort");
+				QuickSort quickObj = new QuickSort(arr);
+				quickObj.print_result();
+			}
+			else System.out.println("Please input sort method");
+		}*/
+		
+		System.out.println("Array before sort");
+		System.out.println(Arrays.toString(arr));
+		BubbleSort bubbleObj = new BubbleSort(arr);
+		bubbleObj.print_result();
+		QuickSort quickObj = new QuickSort(arr);
+		quickObj.print_result();
+		HeapSort heapObj = new HeapSort(arr);
+		heapObj.print_result();
+		InsertionSort insertObj = new InsertionSort(arr);
+		insertObj.print_result();
+		MergerSort mergerObj = new MergerSort(arr);
+		mergerObj.print_result();
+	}
+}
+-----------------mainProgram--------------------
+package exercise;
+
+import exercise.exercise3.exercise3;
+
+public class mainProgram {
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		exercise3.getInstance().run(args);
+		
+	}
+
+}
