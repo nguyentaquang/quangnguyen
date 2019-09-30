@@ -1,0 +1,9 @@
+Statement coverage : 
+  Khái niệm : các dòng lệnh trong source phải được thực thi ít nhất 1 lần
+  Ưu điểm : có thể áp dụng trực tiếp vào mã đối tượng, không cần xử lý mã nguồn
+            chỉ cần rất ít test case là đã có thể bao phủ các dòng lệnh
+  Nhược điểm : không quan tâm đến cấu trúc điều kiện và các quyết định logic
+Branch / Decision coverage : 
+  Khái niệm : đảm bảo mọi biểu thức logic ko chứa các toán tử logic hoặc mọi quyết định đúng/sai đều được thực thi.Các quyết định này 
+              đều phải nhận giá trị true trong 1 trường hợp và false trong một trường hợp khác. Tuy nhiên các decision là biểu thức
+              kết hợp của các condition được nối với nhau bằng các toán tử logic
