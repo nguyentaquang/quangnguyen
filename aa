@@ -1,0 +1,1753 @@
+/*============================================================================*/
+/* Project      = AUTOSAR Renesas X2x MCAL Components                         */
+/* Module       = Lin.c                                                       */
+/* Version      = V1.0.0                                                      */
+/* Date         = 03-Dec-2019                                                 */
+/*============================================================================*/
+/*                                  COPYRIGHT                                 */
+/*============================================================================*/
+/* (c) 2019 Renesas Electronics Corporation. All rights reserved.             */
+/*============================================================================*/
+/* Purpose:                                                                   */
+/* API function implementations of LIN Driver Component                       */
+/*                                                                            */
+/*============================================================================*/
+/*                                                                            */
+/* Unless otherwise agreed upon in writing between your company and           */
+/* Renesas Electronics Corporation the following shall apply!                 */
+/*                                                                            */
+/* Warranty Disclaimer                                                        */
+/*                                                                            */
+/* There is no warranty of any kind whatsoever granted by Renesas. Any        */
+/* warranty is expressly disclaimed and excluded by Renesas, either expressed */
+/* or implied, including but not limited to those for non-infringement of     */
+/* intellectual property, merchantability and/or fitness for the particular   */
+/* purpose.                                                                   */
+/*                                                                            */
+/* Renesas shall not have any obligation to maintain, service or provide bug  */
+/* fixes for the supplied Product(s) and/or the Application.                  */
+/*                                                                            */
+/* Each User is solely responsible for determining the appropriateness of     */
+/* using the Product(s) and assumes all risks associated with its exercise    */
+/* of rights under this Agreement, including, but not limited to the risks    */
+/* and costs of program errors, compliance with applicable laws, damage to    */
+/* or loss of data, programs or equipment, and unavailability or              */
+/* interruption of operations.                                                */
+/*                                                                            */
+/* Limitation of Liability                                                    */
+/*                                                                            */
+/* In no event shall Renesas be liable to the User for any incidental,        */
+/* consequential, indirect, or punitive damage (including but not limited     */
+/* to lost profits) regardless of whether such liability is based on breach   */
+/* of contract, tort, strict liability, breach of warranties, failure of      */
+/* essential purpose or otherwise and even if advised of the possibility of   */
+/* such damages. Renesas shall not be liable for any services or products     */
+/* provided by third party vendors, developers or consultants identified or   */
+/* referred to the User by Renesas in connection with the Product(s) and/or   */
+/* the Application.                                                           */
+/*                                                                            */
+/*============================================================================*/
+/* Environment:                                                               */
+/*              Devices:        X2x                                           */
+/*============================================================================*/
+
+/*******************************************************************************
+**                      Revision Control History                              **
+*******************************************************************************/
+/*
+ * V1.0.0:  03-Dec-2019  : Initial Version
+ */
+/******************************************************************************/
+
+/*******************************************************************************
+**                      Include Section                                       **
+*******************************************************************************/
+/* Lin APIs header file */
+#include "Lin.h"
+/* Lin Post-build configuration header */
+#include "Lin_PBTypes.h"
+/* Lin Transmit receive header for the target */
+#include "Lin_RLIN3_LLDriver.h"
+#if (LIN_DEV_ERROR_DETECT == STD_ON)
+/* Default Error header */
+#include "Det.h"
+#endif
+/* Included for declaration of the function Dem_ReportErrorStatus() */
+#include "Dem.h"
+/* Schedule Manager header */
+#if (LIN_CRITICAL_SECTION_PROTECTION == STD_ON)
+#include "SchM_Lin.h"
+#endif
+/* Global RAM variables header file */
+#include "Lin_Ram.h"
+#if (LIN_WAKEUP_SUPPORT == STD_ON)
+/* Included for the declaration of EcuM_SetWakeupEvent() */
+#include "EcuM_Cbk.h"
+#include "LinIf_Cbk.h"
+#endif
+
+/*******************************************************************************
+**                      Version Information                                   **
+*******************************************************************************/
+/* AUTOSAR release version information */
+#define LIN_C_AR_RELEASE_MAJOR_VERSION     LIN_AR_RELEASE_MAJOR_VERSION_VALUE
+#define LIN_C_AR_RELEASE_MINOR_VERSION     LIN_AR_RELEASE_MINOR_VERSION_VALUE
+#define LIN_C_AR_RELEASE_REVISION_VERSION  LIN_AR_RELEASE_REVISION_VERSION_VALUE
+
+/* File version information */
+#define LIN_C_SW_MAJOR_VERSION    1
+#define LIN_C_SW_MINOR_VERSION    0
+
+/*******************************************************************************
+**                      Version Check                                         **
+*******************************************************************************/
+#if (LIN_AR_RELEASE_MAJOR_VERSION != LIN_C_AR_RELEASE_MAJOR_VERSION)
+  #error "Lin.c : Mismatch in Release Major Version"
+#endif
+
+#if (LIN_AR_RELEASE_MINOR_VERSION != LIN_C_AR_RELEASE_MINOR_VERSION)
+  #error "Lin.c : Mismatch in Release Minor Version"
+#endif
+
+#if (LIN_AR_RELEASE_REVISION_VERSION != LIN_C_AR_RELEASE_REVISION_VERSION)
+  #error "Lin.c : Mismatch in Release Revision Version"
+#endif
+
+#if (LIN_SW_MAJOR_VERSION != LIN_C_SW_MAJOR_VERSION)
+  #error "Lin.c : Mismatch in Software Major Version"
+#endif
+
+#if (LIN_SW_MINOR_VERSION != LIN_C_SW_MINOR_VERSION)
+  #error "Lin.c : Mismatch in Software Minor Version"
+#endif
+
+/*******************************************************************************
+**                      MISRA C Rule Violations                               **
+*******************************************************************************/
+/* 1. MISRA C RULE VIOLATION:                                                 */
+/* Message       : (4:3218) File scope static, 'Lin_GstSleepPdu',             */
+/*                 only accessed in one function.                             */
+/* Rule          : MISRA-C:2004 Rule 8.7                                      */
+/* Justification : To control the memory location by memmap.h, static symbols */
+/*                 must be declared in the global scope.                      */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(4:3218)-1 and                           */
+/*                 END Msg(4:3218)-1 tags in the code.                        */
+/******************************************************************************/
+/* 2. MISRA C RULE VIOLATION:                                                 */
+/*Message        : (4:0489) Increment or decrement operation performed        */
+/*                 on pointer.                                                */
+/*Rule           : MISRA-C:2004 Rule 17.4                                     */
+/*Justification  : This is to get the ID in the data structure in the code.   */
+/*Verification   : However, part of the code is verified manually             */
+/*                 and it is not having any impact.                           */
+/*Reference      : Look for START Msg(4:0489)-2 and                           */
+/*                 END Msg(4:0489)-2 tags in the code.                        */
+/******************************************************************************/
+/* 3. MISRA C RULE VIOLATION:                                                 */
+/* Message       : (4:0312) Dangerous pointer cast results in loss of         */
+/*                 volatile qualification.                                    */
+/* Rule          : MISRA-C:2004 Rule 11.5                                     */
+/* Justification : This is a cast to suppress the following error (volatile). */
+/*                 Msg(4:0562) [C] Right operand of assignment points to a    */
+/*                 more heavily qualified type.                               */
+/* Verification  : However, part of the code is verified manually             */
+/*                 and it is not having any impact.                           */
+/* Reference     : Look for START Msg(4:0312)-3 and                           */
+/*                 END Msg(4:0312)-3 tags in the code.                        */
+/******************************************************************************/
+/* 4. MISRA C RULE VIOLATION:                                                 */
+/* Message       : (4:0491) Array subscripting applied to an object of        */
+/*                 pointer type.                                              */
+/* Rule          : MISRA-C:2004 Rule 17.4                                     */
+/* Justification : Subscripting cannot be applied on the array since size can */
+/*                 grow based on configuration done by user i.e. multi        */
+/*                 configuration                                              */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(4:0491)-4 and                           */
+/*                 END Msg(4:0491)-4 tags in the code.                        */
+/******************************************************************************/
+/* 5. MISRA C RULE VIOLATION:                                                 */
+/* Message       : (4:0316) [I] Cast from a pointer to void to a pointer to   */
+/*                 object type.                                               */
+/* Justification : Typecasting from void* is necessary to hide internal types */
+/*                 from the header files which are exposed to user.           */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(4:0316)-5 and                           */
+/*                 END Msg(4:0316)-5 tags in the code.                        */
+/******************************************************************************/
+/* 6. MISRA C RULE VIOLATION:                                                 */
+/* Message       : (4:2982) This assignment is redundant. The value           */
+/*                 of this object is never used before being modified.        */
+/* Justification : Typecasting from void* is necessary to hide internal types */
+/*                 from the header files which are exposed to user.           */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(4:2982)-6 and                           */
+/*                 END Msg(4:2982)-6 tags in the code.                        */
+/******************************************************************************/
+
+/******************************************************************************/
+/**                      QAC warning                                         **/
+/******************************************************************************/
+/* 1. QAC warning:                                                            */
+/* Message       : (2:3227) The parameter '%s' is never modified and          */
+/*                  so it could be declared with the 'const' qualifier.       */
+/* Rule          : No MISRA-C:2004 Rules applicable to message 3227           */
+/*                 REFERENCE - ISO:C90-6.5.3 Type Qualifiers                  */
+/* Justification : The value of this function parameter is never modified.    */
+/*                 It could be declared with the 'const' type qualifier.      */
+/* Verification  : 'const' can be applied to any variable whose value needs   */
+/*                 to be set only once providing it can be initialized        */
+/*                 when it is defined.                                        */
+/* Reference     : Look for START Msg(2:3227)-1 and                           */
+/*                 END Msg(2:3227)-1 tags in the code.                        */
+/******************************************************************************/
+/******************************************************************************/
+/* 2. QAC warning:                                                            */
+/* Message       : (2:3441) Function call argument is an expression with      */
+/*                 possible side effects                                      */
+/* Rule          : No MISRA-C:2004 Rules applicable to message 3441           */
+/* Justification : Logical operation performed on expression with             */
+/*                 possible side effects.                                     */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(2:3441)-2 and                           */
+/*                 END Msg(2:3441)-2 tags in the code.                        */
+/******************************************************************************/
+/* 3. QAC warning:                                                            */
+/* Message       : (2:3416) Logical operation performed on expression with    */
+/*                 possible side effects.                                     */
+/* Rule          : No MISRA-C:2004 Rules applicable to message 3416           */
+/* Justification : Since a global status of the driver can be changed at      */
+/*                 initial phase only, there is no possibility of             */
+/*                 side effects.                                              */
+/* Verification  : However, part of the code is verified manually and it is   */
+/*                 not having any impact.                                     */
+/* Reference     : Look for START Msg(2:3416)-3 and                           */
+/*                 END Msg(2:3416)-3 tags in the code.                        */
+/******************************************************************************/
+
+/*******************************************************************************
+**                         Global Data                                        **
+*******************************************************************************/
+#define LIN_START_SEC_CONST_UNSPECIFIED
+#include "Lin_MemMap.h"
+/* This structure contains Sleep frame PDU parameters */
+/* MISRA Violation: START Msg(4:3218)-1 */
+static CONST(Lin_PduType, LIN_CONFIG_DATA)Lin_GstSleepPdu =
+/* END Msg(4:3218)-1 */
+{
+  /* PID */
+  LIN_SLEEP_COMMAND,
+  /* Cs Model equal to classic */
+  LIN_CLASSIC_CS,
+  /* Frame direction equal to LIN_MASTER_RESPONSE */
+  LIN_MASTER_RESPONSE,
+  /*Frame data length equal to eight */
+  LIN_EIGHT,
+  /* Data pointer points to NULL */
+  NULL_PTR
+};
+#define LIN_STOP_SEC_CONST_UNSPECIFIED
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+**                      Function Definitions                                  **
+*******************************************************************************/
+
+/*******************************************************************************
+** Function Name      : Lin_Init
+**
+** Service ID         : 0x00
+**
+** Description        : Initializes the LIN module.
+**
+** Sync/Async         : Synchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Config
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return Parameter   : None
+**
+** Preconditions      : Lin Driver state shall be in LIN_UNINIT
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelRamData,
+**                      Lin_GpChannelConfig, Lin_GpRLIN3Properties
+**
+** Functions invoked  : Det_ReportError, Lin_HwInit, Lin_SetStatus
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_001, LIN_DDD_ACT_001_ERR001,
+** Reference ID       : LIN_DDD_ACT_001_ERR002, LIN_DDD_ACT_001_ERR003,
+** Reference ID       : LIN_DDD_ACT_001_GBL001, LIN_DDD_ACT_001_GBL002,
+** Reference ID       : LIN_DDD_ACT_001_GBL003, LIN_DDD_ACT_001_GBL004,
+** Reference ID       : LIN_DDD_ACT_001_GBL005, LIN_DDD_ACT_001_GBL006
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(void, LIN_PUBLIC_CODE) Lin_Init
+                    (P2CONST(Lin_ConfigType, AUTOMATIC, LIN_APPL_CONST) Config)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA) LpRamVars;
+
+  Std_ReturnType LucReturnValue;
+
+  uint8 LucNoOfLinChannels;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  boolean LblDetErrFlag;
+
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  #if (LIN_ALREADY_INIT_DET_CHECK == STD_ON)
+  /* Check if Lin is not in UNINIT state  */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT != Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                         LIN_INIT_SID, LIN_E_STATE_TRANSITION);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* No action required */
+  }
+  #endif /* #if (LIN_ALREADY_INIT_DET_CHECK == STD_ON) */
+
+  /* Check if Lin configuration pointer is a NULL Pointer  */
+  if (NULL_PTR == Config)
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                         LIN_INIT_SID, LIN_E_INVALID_POINTER);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else if (LIN_DBTOC_VALUE != (Config->ulStartOfDbToc))
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                         LIN_INIT_SID, LIN_E_INVALID_DATABASE);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* No action required */
+  }
+
+  /* Check if no DET error is occurred  */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* #if (LIN_DEV_ERROR_DETECT == STD_ON) */
+  {
+    /* Initializes the global pointer of LIN first channel config structure */
+    /* MISRA Violation: START Msg(4:0316)-5 */
+    Lin_GpChannelConfig = (volatile P2CONST(Lin_ChannelInfo, LIN_VAR_NO_INIT,
+                                 LIN_APPL_CONST )) (Config->pFirstChannel);
+    /* END Msg(4:0316)-5 */
+
+    /* Initializes the global pointer of LIN first channel RAM data structure */
+    /* MISRA Violation: START Msg(4:0316)-5 */
+    Lin_GpChannelRamData = (volatile P2VAR(Lin_RamData, LIN_VAR_NO_INIT,
+                               LIN_APPL_CONST )) (Config->pFrameVariables);
+    /* END Msg(4:0316)-5 */
+
+    /* Initializes the global pointer to RLIN3 first channel structure */
+    /* MISRA Violation: START Msg(4:0316)-5 */
+    Lin_GpRLIN3Properties = (volatile P2CONST(Lin3_ChannelConfigType, LIN_VAR_NO_INIT,
+                              LIN_APPL_CONST )) (Config->pRLIN3Properties);
+    /* END Msg(4:0316)-5 */
+
+    /* Initializes RLIN3 HW for configured channels */
+    LucNoOfLinChannels = LIN_ZERO;
+
+    /* Initialize the return value */
+    /* MISRA Violation: START Msg(4:2982)-6 */
+    LucReturnValue = E_NOT_OK;
+    /* END Msg(4:2982)-6 */
+
+    do
+    {
+      /* Initializes the LIN HW channel */
+      LucReturnValue = Lin_HwInit(LucNoOfLinChannels);
+
+      /* Get the pointer to channel RAM data */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LpRamVars = &Lin_GpChannelRamData[LucNoOfLinChannels];
+      /* END Msg(4:0491)-4 */
+
+      /* Initialize the sleep requested bit */
+      LpRamVars->ucSlpRqst_RespRdy = LIN_CLR_SLEEP_REQUEST;
+
+      /* Initialize channel status  */
+      LpRamVars->enChannelStatus = LIN_OPERATIONAL;
+
+      /* Initialize the LinIf wake-up flag */
+      LpRamVars->blWakeupCalled = LIN_FALSE;
+
+      /* Initialize the frame identifier */
+      LpRamVars->ucFrameId = LIN_ZERO;
+
+      /* Initialize the frame length */
+      LpRamVars->ucFrameLength = LIN_ONE;
+
+      /* Initialize the sleep pending status */
+      LpRamVars->blSleepPending = LIN_FALSE;
+
+      LucNoOfLinChannels++;
+
+    }while ((LIN_NO_OF_CHANNELS > LucNoOfLinChannels) &&
+                                  (E_OK == LucReturnValue));
+
+    if (E_OK == LucReturnValue)
+    {
+      /* Set the status of LIN driver(Lin_GblDriverState) to LIN_INIT */
+      Lin_SetStatus(LIN_INIT);
+    }
+    else
+    {
+      /* No action required */
+    }
+
+  } /* if (LblDetErrFlag == LIN_FALSE) */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name      : Lin_CheckWakeup
+**
+** Service ID         : 0x0A
+**
+** Description        : After a wake-up caused by LIN bus transceiver, the API
+**                      Lin_CheckWakeup() will be called by the LIN Interface
+**                      to identify the corresponding LIN channel. After
+**                      detecting of a wake-up event on an individual channel,
+**                      the LIN Driver has to notify the ECU state Manager
+**                      immediately via the EcuM_SetWakeupEvent() call-back
+**                      function.
+**
+** Sync/Async         : Synchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Channel
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return parameter   : Std_ReturnType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelConfig,
+**                      Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError,
+**                      EcuM_SetWakeupEvent, LinIf_WakeupConfirmation,
+**                      Lin_HwSetMasterMode, Lin_HwScheduleInterrupt
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_002, LIN_DDD_ACT_002_ERR001,
+** Reference ID       : LIN_DDD_ACT_002_ERR002, LIN_DDD_ACT_002_GBL001
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_CheckWakeup(uint8 Channel)
+/* END Msg(2:3227)-1 */
+{
+
+  #if (LIN_WAKEUP_SUPPORT == STD_ON)
+  volatile P2CONST(Lin_ChannelInfo, AUTOMATIC, LIN_PRIVATE_CONST)
+                                                    LpLinChannelPtr;
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  #endif /* #if (LIN_WAKEUP_SUPPORT == STD_ON) */
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  boolean LblDetErrFlag;
+  #endif
+
+  Std_ReturnType LucReturnValue;
+
+  /* Initialize the return value to E_NOT_OK */
+  LucReturnValue = E_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not Initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                           LIN_CHECK_WAKEUP_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                  LIN_CHECK_WAKEUP_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* No action required */
+    }
+  }
+
+  /* Check if no DET error is occurred  */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* #if (LIN_DEV_ERROR_DETECT == STD_ON) */
+  {
+    #if (LIN_WAKEUP_SUPPORT == STD_ON)
+    /* Get the address of Channel info structure */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpLinChannelPtr = &Lin_GpChannelConfig[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Get the pointer to channel RAM data */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpRamVars = &Lin_GpChannelRamData[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Check if wake-up occurred */
+    if (LIN_WAKEUP == LpRamVars->ucSlpRqst_RespRdy)
+    {
+      /* Invoke the upper layer wakeup notification */
+      /* QAC Warning: START Msg(2:3441)-2 */
+      EcuM_SetWakeupEvent(
+         (EcuM_WakeupSourceType)LIN_ONE << (LpLinChannelPtr->ucWakeupSourceId));
+      /* END Msg(2:3441)-2 */
+
+      /* Invoke the LinIf wakeup notification */
+      /* QAC Warning: START Msg(2:3441)-2 */
+      LinIf_WakeupConfirmation(
+        (EcuM_WakeupSourceType)LIN_ONE << (LpLinChannelPtr->ucWakeupSourceId));
+      /* END Msg(2:3441)-2 */
+
+      /* Clear the sleep requested bit */
+      LpRamVars->ucSlpRqst_RespRdy = LIN_CLR_SLEEP_REQUEST;
+
+      /* Set RLIN3 to Reset Mode */
+      LucReturnValue = Lin_HwSetMasterMode(Channel, RLIN3_RESET_MODE,
+                                                        LIN_CHECK_WAKEUP_SID);
+
+      if (E_OK == LucReturnValue)
+      {
+        /* Set RLIN3 to Operation Mode */
+        LucReturnValue = Lin_HwSetMasterMode(Channel, RLIN3_OPERATION_MODE,
+                                                        LIN_CHECK_WAKEUP_SID);
+      }
+      else
+      {
+        /* No action required */
+      }
+
+      /* Enter the protection area */
+      LIN_ENTER_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+        /* Disable RLIN3 Interrupt */
+        Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+
+      /* Exit the protection area */
+      LIN_EXIT_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+    }
+    else
+    {
+      /* No action required */
+    }
+    #endif /* #if (LIN_WAKEUP_SUPPORT == STD_ON) */
+  }
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+  return (LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name         : Lin_GetVersionInfo
+**
+** Service ID            : 0x01
+**
+** Description           : This API returns the version information of LIN
+**                         driver component.
+**
+** Sync/Async            : Synchronous
+**
+** Re-entrancy           : Reentrant
+**
+** Input Parameters      : None
+**
+** InOut Parameters      : None
+**
+** Output Parameters     : versioninfo
+**
+** Return parameter      : None
+**
+** Preconditions         : None
+**
+** Global Variables      : None
+**
+** Functions invoked     : Det_ReportError
+**
+** Registers Used        : None
+**
+** Reference ID       : LIN_DDD_ACT_003, LIN_DDD_ACT_003_ERR001
+*******************************************************************************/
+#if (LIN_VERSION_INFO_API == STD_ON)
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(void, LIN_PUBLIC_CODE) Lin_GetVersionInfo
+(P2VAR(Std_VersionInfoType, AUTOMATIC, LIN_APPL_DATA)versioninfo)
+/* END Msg(2:3227)-1 */
+{
+#if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Check if parameter passed is equal to Null pointer */
+  if (NULL_PTR == versioninfo)
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+      LIN_GET_VERSIONINFO_SID, LIN_E_PARAM_POINTER);
+  }
+  else
+#endif /* (LIN_DEV_ERROR_DETECT == STD_ON) */
+  {
+    /* Copy the vendor Id */
+    versioninfo->vendorID = (uint16)LIN_VENDOR_ID;
+    /* Copy the module Id */
+    versioninfo->moduleID = (uint16)LIN_MODULE_ID;
+    /* Copy Software Major Version */
+    versioninfo->sw_major_version = LIN_SW_MAJOR_VERSION;
+    /* Copy Software Minor Version */
+    versioninfo->sw_minor_version = LIN_SW_MINOR_VERSION;
+    /* Copy Software Patch Version */
+    versioninfo->sw_patch_version = LIN_SW_PATCH_VERSION;
+  }
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+#endif /* #if (LIN_VERSION_INFO_API == STD_ON) */
+
+/*******************************************************************************
+** Function Name      : Lin_SendFrame
+**
+** Service ID         : 0x04
+**
+** Description        : This service sends a LIN header and LIN response on
+**                      addressed LIN channel.
+**
+** Sync/Async         : Asynchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Channel, PduInfoPtr
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return parameter   : Std_ReturnType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError, Lin_HwSendHeaderInternal
+**                      LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_004, LIN_DDD_ACT_004_ERR001,
+** Reference ID       : LIN_DDD_ACT_004_ERR002, LIN_DDD_ACT_004_ERR003,
+** Reference ID       : LIN_DDD_ACT_004_ERR004, LIN_DDD_ACT_004_ERR005,
+** Reference ID       : LIN_DDD_ACT_004_CRT001, LIN_DDD_ACT_004_CRT002,
+** Reference ID       : LIN_DDD_ACT_004_CRT003, LIN_DDD_ACT_004_GBL001,
+** Reference ID       : LIN_DDD_ACT_004_CRT004
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_SendFrame
+        (uint8 Channel, P2VAR(Lin_PduType, AUTOMATIC, LIN_APPL_DATA)PduInfoPtr)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  volatile P2VAR(uint8, AUTOMATIC, LIN_PRIVATE_DATA) volatile LpDataBufferPtr;
+  P2VAR(uint8, AUTOMATIC, LIN_PRIVATE_DATA)LpSduPtr;
+  Std_ReturnType LucReturnValue;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  boolean LblDetErrFlag;
+  boolean LblSleepPending;
+  Lin_StatusType LenChannelStatus;
+  #endif
+
+  uint8 LucCount;
+
+  /* Set the error flag */
+  LucReturnValue = E_NOT_OK;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                             LIN_SEND_FRAME_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                    LIN_SEND_FRAME_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* Get the address of LIN Channel structure */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LenChannelStatus = Lin_GpChannelRamData[Channel].enChannelStatus;
+      /* END Msg(4:0491)-4 */
+      
+      /* Get the address of LIN Channel structure */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LblSleepPending = Lin_GpChannelRamData[Channel].blSleepPending;
+      /* END Msg(4:0491)-4 */
+
+      /* Check if the channel is in sleep state */
+      if ( (LIN_CH_SLEEP == LenChannelStatus) ||
+           (LIN_TRUE == LblSleepPending) )
+      {
+        /* Report to DET */
+        (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                  LIN_SEND_FRAME_SID, LIN_E_STATE_TRANSITION);
+
+        /* Set the error status flag to LIN_TRUE */
+        LblDetErrFlag = LIN_TRUE;
+      }
+      else
+      {
+        /* No action required */
+      }
+    }
+
+    /* Report to DET if Pdu Info pointer is a NULL pointer */
+    if (NULL_PTR == PduInfoPtr)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                      LIN_SEND_FRAME_SID, LIN_E_PARAM_POINTER);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* Get the pointer to data pointer */
+      LpSduPtr = PduInfoPtr->SduPtr;
+
+      /* Report to DET, if Sdu Pointer is a NULL pointer */
+      if ((LIN_MASTER_RESPONSE == PduInfoPtr->Drc) && (NULL_PTR == LpSduPtr))
+      {
+        /* Report to DET */
+        (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                      LIN_SEND_FRAME_SID, LIN_E_PARAM_POINTER);
+
+        /* Set the error status flag to LIN_TRUE */
+        LblDetErrFlag = LIN_TRUE;
+      }
+      else
+      {
+        /* No action required */
+      }
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Get the pointer to channel RAM data */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpRamVars = &Lin_GpChannelRamData[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Get pointer to data array of upper layer */
+    LpSduPtr = PduInfoPtr->SduPtr;
+
+    /* Copy the data length to local variable */
+    LucCount = PduInfoPtr->Dl;
+
+    /* Pointing to array aaFrameData of global Ram variable */
+    LpDataBufferPtr = &LpRamVars->aaFrameData[(uint32)LIN_ZERO];
+
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+      /* Disable RLIN3 Interrupt */
+      /* There is a possibility that the EIRF bit will be cleared if an
+         interrupt is occured at this mask timing, but it is no problem.
+         [SWS_Lin_00021] */
+      Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+      if (LIN_MASTER_RESPONSE == PduInfoPtr->Drc)
+      {
+        /* Copy the data bytes to a LIN Driver software buffer */
+        do
+        {
+          /* Copy the data bytes to a LIN Driver software buffer */
+          *LpDataBufferPtr = *LpSduPtr;
+          /* MISRA Violation: START Msg(4:0489)-2 */
+          LpDataBufferPtr++;
+          LpSduPtr++;
+          /* END Msg(4:0489)-2 */
+          LucCount--;
+        }while (LIN_ZERO != LucCount);
+      }
+      else
+      {
+        /* No action required */
+      }
+
+      /* Call the internal function to start the frame transmission */
+      LucReturnValue = Lin_HwSendHeaderInternal(Channel,
+                                              PduInfoPtr, LIN_SEND_FRAME_SID);
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+  }
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+  return(LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name        : Lin_GoToSleep
+**
+** Service ID           : 0x06
+**
+** Description          : This service instructs the driver to transmit a
+**                        go-to-sleep-command on the addressed LIN channel.
+**
+** Sync/Async           : Asynchronous
+**
+** Re-entrancy          : Non-Reentrant
+**
+** Input Parameters     : Channel
+**
+** InOut Parameters     : None
+**
+** Output Parameters    : None
+**
+** Return parameter     : Std_ReturnType
+**
+** Preconditions        : None
+**
+** Global Variables     : Lin_GblDriverState, Lin_GpChannelRamData
+**
+** Functions invoked    : Det_ReportError, Lin_HwSendHeaderInternal
+**                        LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION,
+**                        Lin_HwScheduleInterrupt
+**
+** Registers Used       : None
+**
+** Reference ID       : LIN_DDD_ACT_005, LIN_DDD_ACT_005_ERR001,
+** Reference ID       : LIN_DDD_ACT_005_ERR002, LIN_DDD_ACT_005_CRT001,
+** Reference ID       : LIN_DDD_ACT_005_CRT002, LIN_DDD_ACT_005_CRT003,
+** Reference ID       : LIN_DDD_ACT_005_GBL002, LIN_DDD_ACT_005_GBL003,
+** Reference ID       : LIN_DDD_ACT_005_GBL004, LIN_DDD_ACT_005_CRT004
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_GoToSleep(uint8 Channel)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  volatile P2VAR(uint8, AUTOMATIC, LIN_PRIVATE_DATA) volatile LpDataBuffer;
+  Std_ReturnType LucReturnValue;
+
+  uint8 LucDataCount;
+  uint8 LucDataLength;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  boolean LblDetErrFlag;
+  #endif
+
+  /* Initialize the return value */
+  LucReturnValue = E_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                            LIN_GO_TO_SLEEP_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                    LIN_GO_TO_SLEEP_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* No action required */
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Get the pointer to channel RAM data */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpRamVars = &Lin_GpChannelRamData[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Check if current status is already in LIN_CH_SLEEP_PENDING */
+    if ( LIN_TRUE == LpRamVars->blSleepPending )
+    {
+      /* Update the return value */
+      LucReturnValue = E_OK;
+    }
+    else
+    {
+
+      /* Enter the protection area */
+      LIN_ENTER_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+        /* Disable RLIN3 Interrupt */
+        /* There is a possibility that the EIRF bit will be cleared if an
+           interrupt is occured at this mask timing, but it is no problem.
+           [SWS_Lin_00074] */
+        Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+
+      /* Exit the protection area */
+      LIN_EXIT_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+      /* Enter the protection area */
+      LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+        LpDataBuffer = &LpRamVars->aaFrameData[(uint32)LIN_ZERO];
+
+        /* Copy the data length to local variable */
+        LucDataLength = Lin_GstSleepPdu.Dl;
+
+        *LpDataBuffer = LIN_ZERO;
+
+        /* Copy sleep frame data */
+        for (LucDataCount = LIN_ONE;
+               LucDataLength > LucDataCount;
+                 LucDataCount++)
+        {
+          /* Increment the data buffer pointer */
+          /* MISRA Violation: START Msg(4:0489)-2 */
+          LpDataBuffer++;
+          /* END Msg(4:0489)-2 */
+
+          /* Copy the sleep frame data */
+          *LpDataBuffer = LIN_COPY_SLEEP_FRAME;
+        }
+
+        /* Set the Sleep requested bit */
+        LpRamVars->ucSlpRqst_RespRdy = LIN_SET_SLEEP_REQUEST;
+
+        /* Change Channel status to Sleep Pending */
+        LpRamVars->blSleepPending = LIN_TRUE;
+
+        /* Call the internal function to start the frame transmission */
+        LucReturnValue = Lin_HwSendHeaderInternal(Channel, &Lin_GstSleepPdu,
+                                                      LIN_GO_TO_SLEEP_SID);
+
+      /* Exit the protection area */
+      LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+    }
+  } /* if (LblDetErrFlag == LIN_FALSE) */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+
+  return(LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name      : Lin_GoToSleepInternal
+**
+** Service ID         : 0x09
+**
+** Description        : This is the same function as Lin_GoToSleep () but
+**                      without sending a go-to-sleep command on the bus. LIN
+**                      channel will enter into the LIN_CH_SLEEP state, enabling
+**                      the wake-up detection and optionally sets the LIN
+**                      hardware unit to reduced power operation mode(if
+**                      supported by hardware).
+**
+** Sync/Async         : Synchronous
+**
+** Re-entrancy        : Non Re-entrant
+**
+** Input Parameters   : uint8 Channel
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return parameter   : Std_ReturnType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelConfig,
+**                      Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError, Lin_HwHandleWakeupRequest,
+**                      Lin_HwScheduleInterrupt
+**                      LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_006, LIN_DDD_ACT_006_ERR001,
+** Reference ID       : LIN_DDD_ACT_006_ERR002, LIN_DDD_ACT_006_CRT001,
+** Reference ID       : LIN_DDD_ACT_006_GBL001, LIN_DDD_ACT_006_GBL002,
+** Reference ID       : LIN_DDD_ACT_006_GBL003, LIN_DDD_ACT_006_CRT002
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_GoToSleepInternal(uint8 Channel)
+/* END Msg(2:3227)-1 */
+{
+  #if (LIN_WAKEUP_SUPPORT == STD_ON)
+  volatile P2CONST(Lin_ChannelInfo, AUTOMATIC, LIN_PRIVATE_CONST)
+                                                            LpLinChannelPtr;
+  #endif
+
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  Std_ReturnType LucReturnValue;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  boolean LblDetErrFlag;
+  #endif /* #if  (LIN_DEV_ERROR_DETECT == STD_ON) */
+
+  /* Initialize the return value */
+  LucReturnValue = E_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                    LIN_GO_TO_SLEEP_INTERNAL_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                          LIN_GO_TO_SLEEP_INTERNAL_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* No action required */
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Get the pointer to channel RAM data */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpRamVars = &Lin_GpChannelRamData[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Check if current status is already in LIN_CH_SLEEP */
+    if (( LIN_CH_SLEEP == LpRamVars->enChannelStatus ) &&
+        ( LIN_FALSE == LpRamVars->blSleepPending))
+    {
+      /* Update the return value */
+      LucReturnValue = E_OK;
+    }
+    else
+    {
+      /* Enter the protection area */
+      LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+        /* Change Channel status to Sleep */
+        LpRamVars->enChannelStatus = LIN_CH_SLEEP;
+
+        /* Clear sleep pending status */
+        LpRamVars->blSleepPending = LIN_FALSE;
+
+      /* Clear the sleep requested bit */
+        LpRamVars->ucSlpRqst_RespRdy = LIN_CLR_SLEEP_REQUEST;
+
+        /* Reset the LinIf wake-up flag */
+        LpRamVars->blWakeupCalled = LIN_FALSE;
+
+        /* Check if global wake-up support is enabled */
+        #if (LIN_WAKEUP_SUPPORT == STD_ON)
+        /* Get the address of LIN Channel structure */
+        /* MISRA Violation: START Msg(4:0491)-4 */
+        LpLinChannelPtr = &Lin_GpChannelConfig[Channel];
+        /* END Msg(4:0491)-4 */
+
+        /* Check if channel specific wake-up support is enabled */
+        if (LIN_TRUE == LpLinChannelPtr->blWakeupSupport)
+        {
+          /* Set RLIN3 to Slave Wake-up */
+          LucReturnValue = Lin_HwHandleWakeupRequest(Channel, LIN_SLAVE_ISSUE,
+                                           LIN_GO_TO_SLEEP_INTERNAL_SID);
+        }
+        else
+        {
+          /* Disable RLIN3 Interrupt */
+          Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+          /* Update the return value */
+          LucReturnValue = E_OK;
+        }
+        #else /* #if (LIN_WAKEUP_SUPPORT == STD_ON) */
+          /* Disable RLIN3 Interrupt */
+          Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+          /* Update the return value */
+          LucReturnValue = E_OK;
+        #endif
+
+      /* Exit the protection area */
+      LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+    }
+  }/* No default errors occurred */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+
+  return(LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name      : Lin_WakeUp
+**
+** Service ID         : 0x07
+**
+** Description        : This service instructs the driver to transmit a
+**                      wake-up command on the addressed LIN channel.
+**
+** Sync/Async         : Asynchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Channel
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return parameter   : Std_ReturnType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError,
+**                      Lin_HwHandleWakeupRequest
+**                      LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION,
+**                      Lin_HwScheduleInterrupt
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_007, LIN_DDD_ACT_007_ERR001,
+** Reference ID       : LIN_DDD_ACT_007_ERR002, LIN_DDD_ACT_007_ERR003,
+** Reference ID       : LIN_DDD_ACT_007_ERR004, LIN_DDD_ACT_007_CRT001,
+** Reference ID       : LIN_DDD_ACT_007_CRT002, LIN_DDD_ACT_007_CRT003,
+** Reference ID       : LIN_DDD_ACT_007_GBL001, LIN_DDD_ACT_007_GBL002,
+** Reference ID       : LIN_DDD_ACT_007_CRT004
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_Wakeup(uint8 Channel)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  Std_ReturnType LucReturnValue;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  Lin_StatusType LenChannelStatus;
+  boolean LblDetErrFlag;
+  #endif
+
+  /* Initialize the return value */
+  LucReturnValue = E_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not Initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                                 LIN_WAKEUP_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                       LIN_WAKEUP_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* Get the address of LIN Channel structure */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LenChannelStatus = Lin_GpChannelRamData[Channel].enChannelStatus;
+      /* END Msg(4:0491)-4 */
+
+      if (LIN_CH_SLEEP != LenChannelStatus)
+      {
+        /* Report to DET */
+        (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                       LIN_WAKEUP_SID, LIN_E_STATE_TRANSITION);
+
+        /* Set the error status flag to LIN_TRUE */
+        LblDetErrFlag = LIN_TRUE;
+      }
+      else
+      {
+        /* MISRA Violation: START Msg(4:0491)-4 */
+        if (LIN_TRUE == Lin_GpChannelRamData[Channel].blWakeupCalled)
+        /* END Msg(4:0491)-4 */
+        {
+          /* Report to DET */
+          (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                        LIN_WAKEUP_SID, LIN_E_STATE_TRANSITION);
+
+          /* Set the error status flag to LIN_TRUE */
+          LblDetErrFlag = LIN_TRUE;
+        }
+        else
+        {
+          /* No action required */
+        }
+      }
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+      /* Disable RLIN3 Interrupt */
+      Lin_HwScheduleInterrupt(Channel, LIN_INTERRUPT_DIS);
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_INTERRUPT_CONTROL_PROTECTION);
+
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+      /* Get the pointer to channel RAM data */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LpRamVars = &Lin_GpChannelRamData[Channel];
+      /* END Msg(4:0491)-4 */
+
+      /* Clear the sleep requested bit */
+      LpRamVars->ucSlpRqst_RespRdy = LIN_CLR_SLEEP_REQUEST;
+
+      /* Set the LinIf wake-up flag */
+      LpRamVars->blWakeupCalled = LIN_TRUE;
+
+      /* Set RLIN3 to Master Wake-up */
+      LucReturnValue= Lin_HwHandleWakeupRequest(Channel,
+                                            LIN_MASTER_ISSUE, LIN_WAKEUP_SID);
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+  } /* if (LblDetErrFlag == LIN_FALSE) */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+  return(LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name      : Lin_WakeupInternal
+**
+** Service ID         : 0x0b
+**
+** Description        : This is the same function as Lin_Wakeup () but
+**                      without sending a wake-up command on the bus. LIN
+**                      channel will enter into the LIN_OPERATIONAL state.
+**
+**
+** Sync/Async         : Asynchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Channel
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : None
+**
+** Return parameter   : Std_ReturnType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError, Lin_HwSetMasterMode
+**                      LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_008, LIN_DDD_ACT_008_ERR001,
+** Reference ID       : LIN_DDD_ACT_008_ERR002, LIN_DDD_ACT_008_ERR003,
+** Reference ID       : LIN_DDD_ACT_008_ERR004, LIN_DDD_ACT_008_CRT001,
+** Reference ID       : LIN_DDD_ACT_008_GBL001, LIN_DDD_ACT_008_GBL002,
+** Reference ID       : LIN_DDD_ACT_008_GBL003, LIN_DDD_ACT_008_CRT002
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Std_ReturnType, LIN_PUBLIC_CODE) Lin_WakeupInternal(uint8 Channel)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA)LpRamVars;
+  Std_ReturnType LucReturnValue;
+
+  #if  (LIN_DEV_ERROR_DETECT == STD_ON)
+  Lin_StatusType LenChannelStatus;
+  boolean LblDetErrFlag;
+  #endif
+
+  /* Initialize the return value */
+  LucReturnValue = E_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not Initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                  LIN_WAKEUP_INTERNAL_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                           LIN_WAKEUP_INTERNAL_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* Get the address of LIN Channel structure */
+      /* MISRA Violation: START Msg(4:0491)-4 */
+      LenChannelStatus = Lin_GpChannelRamData[Channel].enChannelStatus;
+      /* END Msg(4:0491)-4 */
+
+      if (LIN_CH_SLEEP != LenChannelStatus)
+      {
+        /* Report to DET */
+        (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                              LIN_WAKEUP_INTERNAL_SID, LIN_E_STATE_TRANSITION);
+        /* Set the error status flag to LIN_TRUE */
+        LblDetErrFlag = LIN_TRUE;
+      }
+      else
+      {
+        /* MISRA Violation: START Msg(4:0491)-4 */
+        if (LIN_TRUE == Lin_GpChannelRamData[Channel].blWakeupCalled)
+        /* END Msg(4:0491)-4 */
+        {
+          /* Report to DET */
+          (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                             LIN_WAKEUP_INTERNAL_SID, LIN_E_STATE_TRANSITION);
+          /* Set the error status flag to LIN_TRUE */
+          LblDetErrFlag = LIN_TRUE;
+        }
+        else
+        {
+          /* No action required */
+        }
+      }
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+      /* Set RLIN3 to Reset Mode */
+      LucReturnValue = Lin_HwSetMasterMode(Channel, RLIN3_RESET_MODE,
+                                                      LIN_WAKEUP_INTERNAL_SID);
+
+      if (E_OK == LucReturnValue)
+      {
+        /* Set RLIN3 to Operation Mode */
+        LucReturnValue = Lin_HwSetMasterMode(Channel, RLIN3_OPERATION_MODE,
+                                                      LIN_WAKEUP_INTERNAL_SID);
+      }
+      else
+      {
+        /* No action is required */
+      }
+      
+      if (E_OK == LucReturnValue)
+      {
+        /* Get the pointer to channel RAM data */
+        /* MISRA Violation: START Msg(4:0491)-4 */
+        LpRamVars = &Lin_GpChannelRamData[Channel];
+        /* END Msg(4:0491)-4 */
+
+        /* Set the channel status */
+        LpRamVars->enChannelStatus = LIN_OPERATIONAL;
+
+        /* Clear the sleep requested bit */
+        LpRamVars->ucSlpRqst_RespRdy = LIN_CLR_SLEEP_REQUEST;
+
+        /* Set the LinIf wake-up flag */
+        LpRamVars->blWakeupCalled = LIN_TRUE;
+
+      }
+      else
+      {
+        /* No action is required */
+      }
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+  } /* if (LblDetErrFlag == LIN_FALSE) */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+  return(LucReturnValue);
+}
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+** Function Name      : Lin_GetStatus
+**
+** Service ID         : 0x08
+**
+** Description        : Indicates the current transmission, reception or
+**                      operation status of the LIN driver.
+**
+** Sync/Async         : Synchronous
+**
+** Re-entrancy        : Non-Reentrant
+**
+** Input Parameters   : Channel
+**
+** InOut Parameters   : None
+**
+** Output Parameters  : Lin_SduPtr
+**
+** Return parameter   : Lin_StatusType
+**
+** Preconditions      : None
+**
+** Global Variables   : Lin_GblDriverState, Lin_GpChannelRamData
+**
+** Functions invoked  : Det_ReportError
+**                      LIN_ENTER_CRITICAL_SECTION, LIN_EXIT_CRITICAL_SECTION
+**
+** Registers Used     : None
+**
+** Reference ID       : LIN_DDD_ACT_009, LIN_DDD_ACT_009_ERR001,
+** Reference ID       : LIN_DDD_ACT_009_ERR002, LIN_DDD_ACT_009_ERR003,
+** Reference ID       : LIN_DDD_ACT_009_CRT001, LIN_DDD_ACT_009_GBL001,
+** Reference ID       : LIN_DDD_ACT_009_CRT002
+*******************************************************************************/
+#define LIN_START_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+/* QAC Warning: START Msg(2:3227)-1 */
+FUNC(Lin_StatusType, LIN_PUBLIC_CODE) Lin_GetStatus(uint8 Channel,
+                      P2VAR(P2VAR(uint8, AUTOMATIC, LIN_APPL_DATA),
+                                           AUTOMATIC, LIN_APPL_DATA)Lin_SduPtr)
+/* END Msg(2:3227)-1 */
+{
+  volatile P2VAR(Lin_RamData, AUTOMATIC, LIN_PRIVATE_DATA) LpRamVars;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  P2VAR(P2VAR(uint8, AUTOMATIC, LIN_APPL_DATA), AUTOMATIC,
+                                                     LIN_APPL_DATA) LpLinSduPtr;
+  boolean LblDetErrFlag;
+  #endif
+
+  boolean LblSleepPending;
+  Lin_StatusType LenReturnValue;
+
+  /* Initialize the return value */
+  LenReturnValue = LIN_NOT_OK;
+
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  /* Initialize error status flag to LIN_FALSE */
+  LblDetErrFlag = LIN_FALSE;
+
+  /* Report to DET, if module is not initialized */
+  /* QAC Warning: START Msg(2:3416)-3 */
+  if (LIN_UNINIT == Lin_GblDriverState)
+  /* END Msg(2:3416)-3 */
+  {
+    /* Report to DET */
+    (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                             LIN_GET_STATUS_SID, LIN_E_UNINIT);
+
+    /* Set the error status flag to LIN_TRUE */
+    LblDetErrFlag = LIN_TRUE;
+  }
+  else
+  {
+    /* Report to DET, if Channel is out of range */
+    if (LIN_MAX_CHANNEL_ID < Channel)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                    LIN_GET_STATUS_SID, LIN_E_INVALID_CHANNEL);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* No action required */
+    }
+
+    /* Get the pointer to data buffer */
+    LpLinSduPtr = Lin_SduPtr;
+
+    /* Report to DET if Lin_SduPtr pointer is a NULL pointer */
+    if (NULL_PTR == LpLinSduPtr)
+    {
+      /* Report to DET */
+      (void)Det_ReportError(LIN_MODULE_ID, LIN_INSTANCE_ID,
+                                    LIN_GET_STATUS_SID, LIN_E_PARAM_POINTER);
+
+      /* Set the error status flag to LIN_TRUE */
+      LblDetErrFlag = LIN_TRUE;
+    }
+    else
+    {
+      /* No action required */
+    }
+  }
+
+  /* Check whether any default error occurred */
+  if (LIN_FALSE == LblDetErrFlag)
+  #endif /* LIN_DEV_ERROR_DETECT */
+  {
+    /* Get the pointer to channel RAM data */
+    /* MISRA Violation: START Msg(4:0491)-4 */
+    LpRamVars = &Lin_GpChannelRamData[Channel];
+    /* END Msg(4:0491)-4 */
+
+    /* Enter the protection area */
+    LIN_ENTER_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+
+    /* Update the return value of the requested channel */
+    LenReturnValue = LpRamVars->enChannelStatus;
+
+    /* Get current sleep pending status */
+    LblSleepPending = LpRamVars->blSleepPending;
+
+    /* When Lin_GetStatus is called, the LIN driver shall directly
+                     enter the LIN_CH_SLEEP state */
+    if (LIN_TRUE == LblSleepPending)
+    {
+
+      /* Change Channel status to Sleep */
+      LpRamVars->enChannelStatus = LIN_CH_SLEEP;
+
+      /* Clear sleep pending status */
+      LpRamVars->blSleepPending = LIN_FALSE;
+
+      LenReturnValue = LIN_CH_SLEEP;
+    }
+    else
+    {
+      /* No action required */
+    }
+
+    /* Check if the reception is successful */
+    if (LIN_RX_OK == LenReturnValue)
+    {
+      /* MISRA Violation: START Msg(4:0312)-3 */
+      *Lin_SduPtr = (uint8 *)&(LpRamVars->aaFrameData[(uint32)LIN_ZERO]);
+      /* END Msg(4:0312)-3 */
+    }
+    else
+    {
+      /* No action required */
+    }
+
+    /* Exit the protection area */
+    LIN_EXIT_CRITICAL_SECTION(LIN_RAM_DATA_PROTECTION);
+  } /* No DET errors occurred */
+  #if (LIN_DEV_ERROR_DETECT == STD_ON)
+  else
+  {
+    /* No action is required */
+  }
+  #endif
+  return(LenReturnValue);
+}
+
+#define LIN_STOP_SEC_PUBLIC_CODE
+#include "Lin_MemMap.h"
+
+/*******************************************************************************
+**                          End of File                                       **
+*******************************************************************************/
