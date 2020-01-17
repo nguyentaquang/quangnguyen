@@ -1,0 +1,202 @@
+/*============================================================================*/
+/* Project      = AUTOSAR Renesas X2x MCAL Components                         */
+/* Module       = Lin_RLIN3_PBTypes.h                                         */
+/* Version      = V1.0.0                                                      */
+/* Date         = 03-Dec-2019                                                 */
+/*============================================================================*/
+/*                                  COPYRIGHT                                 */
+/*============================================================================*/
+/* (c) 2019 Renesas Electronics Corporation. All rights reserved.             */
+/*============================================================================*/
+/* Purpose:                                                                   */
+/* Provision of all Macros.                                                   */
+/*                                                                            */
+/*============================================================================*/
+/*                                                                            */
+/* Unless otherwise agreed upon in writing between your company and           */
+/* Renesas Electronics Corporation the following shall apply!                 */
+/*                                                                            */
+/* Warranty Disclaimer                                                        */
+/*                                                                            */
+/* There is no warranty of any kind whatsoever granted by Renesas. Any        */
+/* warranty is expressly disclaimed and excluded by Renesas, either expressed */
+/* or implied, including but not limited to those for non-infringement of     */
+/* intellectual property, merchantability and/or fitness for the particular   */
+/* purpose.                                                                   */
+/*                                                                            */
+/* Renesas shall not have any obligation to maintain, service or provide bug  */
+/* fixes for the supplied Product(s) and/or the Application.                  */
+/*                                                                            */
+/* Each User is solely responsible for determining the appropriateness of     */
+/* using the Product(s) and assumes all risks associated with its exercise    */
+/* of rights under this Agreement, including, but not limited to the risks    */
+/* and costs of program errors, compliance with applicable laws, damage to    */
+/* or loss of data, programs or equipment, and unavailability or              */
+/* interruption of operations.                                                */
+/*                                                                            */
+/* Limitation of Liability                                                    */
+/*                                                                            */
+/* In no event shall Renesas be liable to the User for any incidental,        */
+/* consequential, indirect, or punitive damage (including but not limited     */
+/* to lost profits) regardless of whether such liability is based on breach   */
+/* of contract, tort, strict liability, breach of warranties, failure of      */
+/* essential purpose or otherwise and even if advised of the possibility of   */
+/* such damages. Renesas shall not be liable for any services or products     */
+/* provided by third party vendors, developers or consultants identified or   */
+/* referred to the User by Renesas in connection with the Product(s) and/or   */
+/* the Application.                                                           */
+/*                                                                            */
+/*============================================================================*/
+/* Environment:                                                               */
+/*              Devices:        X2x                                           */
+/*============================================================================*/
+
+/*******************************************************************************
+**                      Revision Control History                              **
+*******************************************************************************/
+/*
+ * V1.0.0:  03-Dec-2019  : Initial Version
+ */
+/******************************************************************************/
+
+#ifndef LIN_RLIN3_PBTYPES_H
+#define LIN_RLIN3_PBTYPES_H
+
+/*******************************************************************************
+**                      Include Section                                       **
+*******************************************************************************/
+/* Included for Lin type declarations */
+#include "Lin.h"
+
+/*******************************************************************************
+**                      Version Information                                   **
+*******************************************************************************/
+/* AUTOSAR Release version information */
+#define LIN_RLIN3_PBTYPES_AR_RELEASE_MAJOR_VERSION \
+                                             LIN_AR_RELEASE_MAJOR_VERSION
+#define LIN_RLIN3_PBTYPES_AR_RELEASE_MINOR_VERSION \
+                                             LIN_AR_RELEASE_MINOR_VERSION
+#define LIN_RLIN3_PBTYPES_AR_RELEASE_REVISION_VERSION \
+                                             LIN_AR_RELEASE_REVISION_VERSION
+
+/* Module Software version information */
+#define LIN_RLIN3_PBTYPES_SW_MAJOR_VERSION   LIN_SW_MAJOR_VERSION
+#define LIN_RLIN3_PBTYPES_SW_MINOR_VERSION   LIN_SW_MINOR_VERSION
+
+/*******************************************************************************
+**                      Global Symbols                                        **
+*******************************************************************************/
+/* LIN Driver initialization status */
+#define LIN_UNINIT              (boolean)0x00
+#define LIN_INIT                (boolean)0x01
+
+#define LIN_TRUE                (boolean)0x01
+#define LIN_FALSE               (boolean)0x00
+
+#define LIN_ZERO                (uint8)0x00
+#define LIN_ONE                 (uint8)0x01
+#define LIN_FOUR                (uint8)0x04
+#define LIN_EIGHT               (uint8)0x08
+
+/* RLIN Frame Structure Codes */
+#define LIN_RESET_VALUE              (uint8)0x00
+#define LIN_SET_VALUE                (uint8)0x01
+#define LIN_SET_OPERATION_MODE       (uint8)0x03
+#define LIN_LOW_WIDTH                (uint8)0x40
+#define LIN_FRAME_MODE               (uint8)0xBF
+#define LIN_SET_CLS_CHKSUM           (uint8)0xDF
+#define LIN_SET_ENH_CHKSUM           (uint8)0x20
+#define LIN_MASTER_DIRECTION         (uint8)0x10
+#define LIN_SLAVE_DIRECTION          (uint8)0xEF
+#define LIN_START_TRANSMIT           (uint8)0x01
+#define LIN_COPY_SLEEP_FRAME         (uint8)0xFF
+
+#define LIN_ENABLE_INTERRUPT_REG     (uint8)0x07
+#define LIN_SLEEP_COMMAND            (uint8)0x3C
+
+/* RLIN Prescaler Codes */
+#define LIN_PRESCALER_DIV1           (uint8)0x00
+#define LIN_PRESCALER_DIV2           (uint8)0x02
+#define LIN_PRESCALER_DIV4           (uint8)0x04
+#define LIN_PRESCALER_DIV8           (uint8)0x06
+#define LIN_PRESCALER_DIV16          (uint8)0x08
+#define LIN_PRESCALER_DIV32          (uint8)0x0A
+#define LIN_PRESCALER_DIV64          (uint8)0x0C
+#define LIN_PRESCALER_DIV128         (uint8)0x0E
+
+/* RLIN Status Codes */
+#define LIN_WAKEUP                   (uint8)0xFF
+#define LIN_HEADER_COMPLETE          (uint8)0x80
+#define LIN_DATA1RX_COMPLETE         (uint8)0x40
+#define LIN_RESPONSE_COMPLETE        (uint8)0x02
+#define LIN_FRAME_COMPLETE           (uint8)0x01
+#define LIN_RESET_WAKEUP             (uint8)0xFE
+#define LIN_TRANSMIT_DONE            (uint8)0x7E
+#define LIN_HEADER_DONE              (uint8)0x7F
+#define LIN_RECEPTION_DONE           (uint8)0xFD
+
+#define LIN_CLR_SLEEP_REQUEST        (uint8)0x00
+#define LIN_SET_SLEEP_REQUEST        (uint8)0x01
+
+/* RLIN Error Codes */
+#define LIN_CHECKSUM_ERROR           (uint8)0x20
+#define LIN_CHECKSUM_CLEAR           (uint8)0xDF
+#define LIN_TIMEOUT_ERROR            (uint8)0x04
+#define LIN_TIMEOUT_CLEAR            (uint8)0xFB
+#define LIN_BIT_ERROR                (uint8)0x01
+#define LIN_BIT_CLEAR                (uint8)0xFE
+#define LIN_PBUS_ERROR               (uint8)0x02
+#define LIN_PBUS_CLEAR               (uint8)0xFD
+#define LIN_FRAMING_ERROR            (uint8)0x08
+#define LIN_FRAMING_CLEAR            (uint8)0xF7
+#define LIN_ERROR_INTERRUPT          (uint8)0x0F
+#define LIN_ERROR_OCCURED            (uint8)0x08
+#define LIN_ERROR_CLEAR              (uint8)0xF7
+
+/* RLIN3 Register Values */
+#define RLIN3_MASTER_MODE            (uint8)0x3C
+#define RLIN3_INTERRUPT_REG          (uint8)0x10
+
+/* RLIN3 EICn */
+#define LIN_EIC_EIRF             (uint16)0x1000U
+#define LIN_EIC_EIMK_MASK        (uint16)0x0080U
+#define LIN_EIC_EIMK_MASK_CLEAR  (uint16)0xEF7FU
+
+/*******************************************************************************
+**                      Global Data Types                                     **
+*******************************************************************************/
+/* Type of the RLIN3 modes */
+typedef enum ETag_Lin_ModeType
+{
+  RLIN3_RESET_MODE = 0x00,
+  RLIN3_OPERATION_MODE = 0x01,
+  RLIN3_WAKEUP_MODE = 0x02
+} Lin_ModeType;
+
+/* Type of LIN interrupt schedule */
+typedef enum ETag_InterruptScheduleType
+{
+  LIN_INTERRUPT_DIS = 0x00,
+  LIN_INTERRUPT_EN = 0x01
+} Lin_InterruptScheduleType;
+
+/* Type of LIN wake-up */
+typedef enum ETag_Lin_WakeupType
+{
+  LIN_SLAVE_ISSUE = 0x00,
+  LIN_MASTER_ISSUE = 0x01
+} Lin_WakeupType;
+
+/*******************************************************************************
+**           MACROS FOR ENABLING AND DISABLING INTERRUPTS                     **
+*******************************************************************************/
+
+/*******************************************************************************
+**                      Function Prototypes                                   **
+*******************************************************************************/
+
+#endif /* LIN_RLIN3_PBTYPES_H */
+
+/*******************************************************************************
+**                          End of File                                       **
+*******************************************************************************/
